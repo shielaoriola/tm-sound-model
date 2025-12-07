@@ -10,58 +10,73 @@
 </head>
 <body>
   <h2>TM Sound Listener</h2>
-  <p id="status">Loading model...</p>
+  <button type="button" onclick="init()">Start Listening</button>
+  <div id="label-container"></div>
+  <p id="status">Waiting to start...</p>
 
-  <!-- Official TM Sound CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/sound@0.8.3/dist/teachablemachine-sound.min.js"></script>
+  <!-- Load TensorFlow.js and Speech Commands -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
 
   <script>
-    console.log("tmSound library:", window.tmSound);
+    const URL = "./my_model/"; // Folder with your exported model
 
-    const URL = "./model/";
-    const modelURL = URL + "model.json";
-    const metadataURL = URL + "metadata.json";
+    let recognizer, classLabels;
 
-    let model, microphone;
+    async function createModel() {
+      const checkpointURL = URL + "model.json";
+      const metadataURL = URL + "metadata.json";
+
+      recognizer = speechCommands.create(
+        "BROWSER_FFT",
+        undefined,
+        checkpointURL,
+        metadataURL
+      );
+
+      await recognizer.ensureModelLoaded();
+      classLabels = recognizer.wordLabels();
+
+      // Create divs for each class
+      const labelContainer = document.getElementById("label-container");
+      labelContainer.innerHTML = "";
+      classLabels.forEach(() => {
+        labelContainer.appendChild(document.createElement("div"));
+      });
+
+      console.log("Model loaded:", classLabels);
+      document.getElementById("status").innerText = "Model loaded. Click Start Listening.";
+    }
 
     async function init() {
-      try {
-        if (!window.tmSound) throw new Error("TM Sound library not loaded");
+      if (!recognizer) await createModel();
 
-        console.log("Loading model...");
-        model = await tmSound.load(modelURL, metadataURL);
-        console.log("Model loaded:", model);
+      document.getElementById("status").innerText = "Listening...";
 
-        microphone = new tmSound.Microphone();
-        await microphone.open();
-        console.log("Microphone opened");
+      recognizer.listen(result => {
+        const scores = result.scores;
+        const labelContainer = document.getElementById("label-container");
 
-        document.getElementById("status").innerText = "Mic active ✓";
-        predictLoop();
-
-      } catch (err) {
-        console.error("Initialization error:", err);
-        document.getElementById("status").innerText = "Error: " + err;
-      }
-    }
-
-    async function predictLoop() {
-      try {
-        const prediction = await model.predict(microphone);
-        const best = prediction[0];
-        document.getElementById("status").innerText =
-          `Detected: ${best.className} (${best.probability.toFixed(2)})`;
-
-        if (window.AppInventor) {
-          window.AppInventor.setWebViewString(JSON.stringify(best));
+        for (let i = 0; i < classLabels.length; i++) {
+          labelContainer.childNodes[i].innerHTML =
+            classLabels[i] + ": " + scores[i].toFixed(2);
         }
-      } catch (err) {
-        console.error("Prediction error:", err);
-      }
-      requestAnimationFrame(predictLoop);
-    }
 
-    window.onload = init;
+        // Send highest probability class to MIT App Inventor
+        const maxIndex = scores.indexOf(Math.max(...scores));
+        if (window.AppInventor) {
+          window.AppInventor.setWebViewString(JSON.stringify({
+            className: classLabels[maxIndex],
+            probability: scores[maxIndex]
+          }));
+        }
+      }, {
+        probabilityThreshold: 0.75,
+        includeSpectrogram: true,
+        overlapFactor: 0.5,
+        invokeCallbackOnNoiseAndUnknown: true
+      });
+    }
   </script>
 </body>
 </html>
