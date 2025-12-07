@@ -104,10 +104,12 @@
 
 <div id="status">Idle</div>
 <div id="detected">Sound Detected: None</div>
-<a href="how-to-use.html" id="howToLink">How to use AlertSense?</a>
+
 
 <button id="startBtn">Start Listening</button>
 <button id="stopBtn">Stop Listening</button>
+
+<a href="how-to-use.html" id="howToLink">How to use AlertSense?</a>
 
 <!-- TensorFlow.js and Speech Commands -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
@@ -142,7 +144,7 @@ function handleResult(result) {
     document.getElementById("detected").innerText = "Sound Detected: " + detected;
 
     // Emergency detection
-    if (["Whistle", "Crying", "Siren", "Help"].includes(detected) && probability > 0.75) {
+    if (["Whistle","Siren","Help","Crying"].includes(detected) && detected !== "Background" && probability > 0.85) {
         consecutiveDetections++;
         if (consecutiveDetections >= 2) {
             document.getElementById("status").innerText = "EMERGENCY SOUND DETECTED!";
