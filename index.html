@@ -70,16 +70,22 @@ function stopListening() {
 function handleResult(result) {
     const scores = result.scores;
     const maxIndex = scores.indexOf(Math.max(...scores));
-    const detected = {
-        className: classLabels[maxIndex],
-        probability: scores[maxIndex]
-    };
-    document.getElementById("status").innerText = `Detected: ${detected.className}`;
-    
-    if (window.AppInventor) {
-        window.AppInventor.setWebViewString(JSON.stringify(detected));
+    const detected = recognizer.wordLabels()[maxIndex];
+    const probability = scores[maxIndex];
+
+    // Only send to App Inventor if it's an emergency sound with high probability
+    if (probability > 0.7 && 
+        (detected == "Whistle" || detected == "Help" || detected == "Siren" || detected == "Crying")) {
+        if (window.AppInventor) {
+            window.AppInventor.setWebViewString("EMERGENCY");  // simple keyword
+        }
+    } else {
+        if (window.AppInventor) {
+            window.AppInventor.setWebViewString("IDLE");  // optional for idle
+        }
     }
 }
+
 
   </script>
 </body>
