@@ -6,6 +6,7 @@
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     #status { margin-top: 10px; font-weight: bold; }
+    #label-container div { margin: 5px 0; }
   </style>
 </head>
 <body>
@@ -19,15 +20,14 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
 
   <script>
-    const URL = "./model/"; // Folder with your exported model
+    // HTTPS URLs pointing directly to your model files
+    const checkpointURL = "https://shielaoriola.github.io/tm-sound-model/model/model.json";
+    const metadataURL   = "https://shielaoriola.github.io/tm-sound-model/model/metadata.json";
 
-    let recognizer, classLabels;
+    let recognizer;
+    let classLabels;
 
     async function createModel() {
-      const checkpointURL = "https://shielaoriola.github.io/tm-sound-model/model/model.json";
-      const metadataURL   = "https://shielaoriola.github.io/tm-sound-model/model/metadata.json";
-
-
       recognizer = speechCommands.create(
         "BROWSER_FFT",
         undefined,
@@ -38,7 +38,7 @@
       await recognizer.ensureModelLoaded();
       classLabels = recognizer.wordLabels();
 
-      // Create divs for each class
+      // Prepare label container
       const labelContainer = document.getElementById("label-container");
       labelContainer.innerHTML = "";
       classLabels.forEach(() => {
@@ -58,6 +58,7 @@
         const scores = result.scores;
         const labelContainer = document.getElementById("label-container");
 
+        // Update all class probabilities
         for (let i = 0; i < classLabels.length; i++) {
           labelContainer.childNodes[i].innerHTML =
             classLabels[i] + ": " + scores[i].toFixed(2);
