@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TM Sound Listener</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #status { margin-top: 10px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>TM Sound Listener</h2>
+  <p id="status">Loading model...</p>
+
+  <!-- UMD build compatible with WebViewer -->
+  <script src="https://cdn.jsdelivr.net/gh/teachablemachine/sound@0.8.3/dist/teachablemachine-sound.min.js"></script>
+
+  <script>
+    const URL = "./model/";
+    const modelURL = URL + "model.json";
+    const metadataURL = URL + "metadata.json";
+
+
+    let model, microphone;
+
+    function init() {
+      // Wait until tmSound is defined
+      if (!window.tmSound) {
+        setTimeout(init, 100); // retry in 100ms
+        return;
+      }
+
+      tmSound.load(modelURL, metadataURL).then(loadedModel => {
+        model = loadedModel;
+        microphone = new tmSound.Microphone();
+        return microphone.open();
+      }).then(() => {
+        document.getElementById("status").innerText = "Mic active ✓";
+        predictLoop();
+      }).catch(err => {
+        console.error("Error initializing model:", err);
+        document.getElementById("status").innerText = "Error: " + err;
+      });
+    }
+
+    function predictLoop() {
+      model.predict(microphone).then(prediction => {
+        const best = prediction[0];
+        document.getElementById("status").innerText =
+          `Detected: ${best.className} (${best.probability.toFixed(2)})`;
+        if (window.AppInventor) {
+          window.AppInventor.setWebViewString(JSON.stringify(best));
+        }
+        requestAnimationFrame(predictLoop);
+      }).catch(err => {
+        console.error("Prediction error:", err);
+        requestAnimationFrame(predictLoop);
+      });
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
