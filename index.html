@@ -2,33 +2,110 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Emergency Sound Detector</title>
+<title>AlertSense - Emergency Sound Detector</title>
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    text-align: center;
+  /* Reset and basic styling */
+  * {
     margin: 0;
     padding: 0;
-    background-color: white;
-    transition: background-color 0.1s;
+    box-sizing: border-box;
   }
-  h1 { margin-top: 30px; }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    text-align: center;
+    background-color: #ffffff;
+    transition: background-color 0.2s ease;
+    color: #333;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 40px 20px;
+  }
+
+  h1 {
+    font-size: 36px;
+    margin-bottom: 20px;
+    color: #ff6600; /* Orange main color */
+  }
+
   #status {
     font-weight: bold;
-    font-size: 24px;
-    margin: 20px 0;
+    font-size: 26px;
+    margin: 15px 0;
+    color: #ff6600;
   }
+
+  #detected {
+    font-size: 20px;
+    margin-bottom: 30px;
+    color: #555;
+  }
+
+  a#howToLink {
+    display: inline-block;
+    margin-bottom: 40px;
+    font-size: 18px;
+    text-decoration: none;
+    color: #ffffff;
+    background-color: #ff6600;
+    padding: 10px 20px;
+    border-radius: 25px;
+    transition: background-color 0.2s ease;
+  }
+
+  a#howToLink:hover {
+    background-color: #e65c00;
+  }
+
   button {
-    padding: 15px 30px;
+    padding: 15px 35px;
     font-size: 18px;
     margin: 10px;
+    border: none;
+    border-radius: 30px;
+    background-color: #ff6600;
+    color: #fff;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
   }
+
+  button:hover {
+    background-color: #e65c00;
+    transform: translateY(-2px);
+  }
+
+  button:active {
+    transform: translateY(0px);
+  }
+
+  /* Flashing emergency styling */
+  body.emergency {
+    background-color: #ff3300 !important;
+    color: #fff;
+  }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    h1 { font-size: 28px; }
+    #status { font-size: 22px; }
+    #detected { font-size: 18px; }
+    button, a#howToLink { font-size: 16px; padding: 12px 25px; }
+  }
+
 </style>
 </head>
 <body>
 
 <h1>AlertSense</h1>
+
 <div id="status">Idle</div>
+<div id="detected">Sound Detected: None</div>
+<a href="how-to-use.html" id="howToLink">How to use AlertSense?</a>
+
 <button id="startBtn">Start Listening</button>
 <button id="stopBtn">Stop Listening</button>
 
@@ -44,7 +121,9 @@ let recognizer;
 let classLabels;
 let listening = false;
 let flashInterval;
+let consecutiveDetections = 0;
 
+// Load model
 async function initModel() {
     recognizer = speechCommands.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
     await recognizer.ensureModelLoaded();
@@ -52,29 +131,36 @@ async function initModel() {
     console.log("Model loaded:", classLabels);
 }
 
-// Handle results from TM
+// Handle TM results
 function handleResult(result) {
     const scores = result.scores;
     const maxIndex = scores.indexOf(Math.max(...scores));
     const detected = classLabels[maxIndex];
-    console.log("Detected:", detected);
+    const probability = scores[maxIndex];
 
-    if (["Whistle", "Crying", "Siren", "Help"].includes(detected)) {
-        document.getElementById("status").innerText = "EMERGENCY SOUND DETECTED!";
-        startFlashing();
-        // Vibrate if on mobile
-        if (navigator.vibrate) navigator.vibrate([500, 500, 500]);
+    // Update detected sound label
+    document.getElementById("detected").innerText = "Sound Detected: " + detected;
+
+    // Emergency detection
+    if (["Whistle", "Crying", "Siren", "Help"].includes(detected) && probability > 0.75) {
+        consecutiveDetections++;
+        if (consecutiveDetections >= 2) {
+            document.getElementById("status").innerText = "EMERGENCY SOUND DETECTED!";
+            startFlashing();
+            if (navigator.vibrate) navigator.vibrate([500, 500, 500]);
+        }
     } else {
-        document.getElementById("status").innerText = "Idle";
+        consecutiveDetections = 0;
+        document.getElementById("status").innerText = listening ? "Listening..." : "Idle";
         stopFlashing();
     }
 }
 
+// Flash red background
 function startFlashing() {
     if (!flashInterval) {
         flashInterval = setInterval(() => {
-            document.body.style.backgroundColor = 
-                document.body.style.backgroundColor === "red" ? "white" : "red";
+            document.body.classList.toggle("emergency");
         }, 500);
     }
 }
@@ -82,14 +168,16 @@ function startFlashing() {
 function stopFlashing() {
     clearInterval(flashInterval);
     flashInterval = null;
-    document.body.style.backgroundColor = "white";
+    document.body.classList.remove("emergency");
 }
 
+// Start/Stop listening
 async function startListening() {
     if (!recognizer) await initModel();
     if (!listening) {
         listening = true;
         document.getElementById("status").innerText = "Listening...";
+        document.getElementById("detected").innerText = "Sound Detected: None";
         recognizer.listen(handleResult, {
             probabilityThreshold: 0.75,
             includeSpectrogram: true,
@@ -104,7 +192,9 @@ function stopListening() {
         recognizer.stopListening();
         listening = false;
         document.getElementById("status").innerText = "Idle";
+        document.getElementById("detected").innerText = "Sound Detected: None";
         stopFlashing();
+        consecutiveDetections = 0;
     }
 }
 
