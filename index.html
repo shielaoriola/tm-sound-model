@@ -1,92 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>TM Sound Listener</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    #status { margin-top: 10px; font-weight: bold; }
-    #label-container div { margin: 5px 0; }
-  </style>
+<meta charset="UTF-8">
+<title>Emergency Sound Detector</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+    background-color: white;
+    transition: background-color 0.1s;
+  }
+  h1 { margin-top: 30px; }
+  #status {
+    font-weight: bold;
+    font-size: 24px;
+    margin: 20px 0;
+  }
+  button {
+    padding: 15px 30px;
+    font-size: 18px;
+    margin: 10px;
+  }
+</style>
 </head>
 <body>
-  <h2>TM Sound Listener</h2>
-  <button type="button" onclick="init()">Start Listening</button>
-  <div id="label-container"></div>
-  <p id="status">Waiting to start...</p>
 
-  <!-- Load TensorFlow.js and Speech Commands -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
+<h1>AlertSense</h1>
+<div id="status">Idle</div>
+<button id="startBtn">Start Listening</button>
+<button id="stopBtn">Stop Listening</button>
 
-  <script>
-    // HTTPS URLs pointing directly to your model files
-    const checkpointURL = "https://shielaoriola.github.io/tm-sound-model/model/model.json";
-    const metadataURL   = "https://shielaoriola.github.io/tm-sound-model/model/metadata.json";
+<!-- TensorFlow.js and Speech Commands -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
 
-    let recognizer;
-    let classLabels;
+<script>
+const checkpointURL = "https://shielaoriola.github.io/tm-sound-model/model/model.json";
+const metadataURL   = "https://shielaoriola.github.io/tm-sound-model/model/metadata.json";
 
-    async function createModel() {
-      recognizer = speechCommands.create(
-        "BROWSER_FFT",
-        undefined,
-        checkpointURL,
-        metadataURL
-      );
+let recognizer;
+let classLabels;
+let listening = false;
+let flashInterval;
 
-      await recognizer.ensureModelLoaded();
-      classLabels = recognizer.wordLabels();
-
-      // Prepare label container
-      const labelContainer = document.getElementById("label-container");
-      labelContainer.innerHTML = "";
-      classLabels.forEach(() => {
-        labelContainer.appendChild(document.createElement("div"));
-      });
-
-      console.log("Model loaded:", classLabels);
-      document.getElementById("status").innerText = "Model loaded. Click Start Listening.";
-    }
-
-    async function startListening() {
-    if (!recognizer) await createModel();
-    document.getElementById("status").innerText = "Listening...";
-    recognizer.listen(handleResult, {
-        probabilityThreshold: 0.2,
-        includeSpectrogram: true,
-        overlapFactor: 0.5,
-        invokeCallbackOnNoiseAndUnknown: true
-    });
+async function initModel() {
+    recognizer = speechCommands.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
+    await recognizer.ensureModelLoaded();
+    classLabels = recognizer.wordLabels();
+    console.log("Model loaded:", classLabels);
 }
 
-function stopListening() {
-    if (recognizer) {
-        recognizer.stopListening();
-        document.getElementById("status").innerText = "Idle";
-    }
-}
-
+// Handle results from TM
 function handleResult(result) {
     const scores = result.scores;
     const maxIndex = scores.indexOf(Math.max(...scores));
-    const detected = recognizer.wordLabels()[maxIndex];
-    const probability = scores[maxIndex];
+    const detected = classLabels[maxIndex];
+    console.log("Detected:", detected);
 
-    // Only send to App Inventor if it's an emergency sound with high probability
-    if (probability > 0.7 && 
-        (detected == "Whistle" || detected == "Help" || detected == "Siren" || detected == "Crying")) {
-        if (window.AppInventor) {
-            window.AppInventor.setWebViewString("EMERGENCY");  // simple keyword
-        }
+    if (["Whistle", "Crying", "Siren", "Help"].includes(detected)) {
+        document.getElementById("status").innerText = "EMERGENCY SOUND DETECTED!";
+        startFlashing();
+        // Vibrate if on mobile
+        if (navigator.vibrate) navigator.vibrate([500, 500, 500]);
     } else {
-        if (window.AppInventor) {
-            window.AppInventor.setWebViewString("IDLE");  // optional for idle
-        }
+        document.getElementById("status").innerText = "Idle";
+        stopFlashing();
     }
 }
 
+function startFlashing() {
+    if (!flashInterval) {
+        flashInterval = setInterval(() => {
+            document.body.style.backgroundColor = 
+                document.body.style.backgroundColor === "red" ? "white" : "red";
+        }, 500);
+    }
+}
 
-  </script>
+function stopFlashing() {
+    clearInterval(flashInterval);
+    flashInterval = null;
+    document.body.style.backgroundColor = "white";
+}
+
+async function startListening() {
+    if (!recognizer) await initModel();
+    if (!listening) {
+        listening = true;
+        document.getElementById("status").innerText = "Listening...";
+        recognizer.listen(handleResult, {
+            probabilityThreshold: 0.75,
+            includeSpectrogram: true,
+            overlapFactor: 0.5,
+            invokeCallbackOnNoiseAndUnknown: true
+        });
+    }
+}
+
+function stopListening() {
+    if (recognizer && listening) {
+        recognizer.stopListening();
+        listening = false;
+        document.getElementById("status").innerText = "Idle";
+        stopFlashing();
+    }
+}
+
+// Buttons
+document.getElementById("startBtn").addEventListener("click", startListening);
+document.getElementById("stopBtn").addEventListener("click", stopListening);
+
+</script>
 </body>
 </html>
