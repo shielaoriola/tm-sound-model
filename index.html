@@ -79,6 +79,39 @@
         invokeCallbackOnNoiseAndUnknown: true
       });
     }
+
+    async function startListening() {
+    if (!recognizer) await createModel();
+    document.getElementById("status").innerText = "Listening...";
+    recognizer.listen(handleResult, {
+        probabilityThreshold: 0.2,
+        includeSpectrogram: true,
+        overlapFactor: 0.5,
+        invokeCallbackOnNoiseAndUnknown: true
+    });
+}
+
+function stopListening() {
+    if (recognizer) {
+        recognizer.stopListening();
+        document.getElementById("status").innerText = "Idle";
+    }
+}
+
+function handleResult(result) {
+    const scores = result.scores;
+    const maxIndex = scores.indexOf(Math.max(...scores));
+    const detected = {
+        className: classLabels[maxIndex],
+        probability: scores[maxIndex]
+    };
+    document.getElementById("status").innerText = `Detected: ${detected.className}`;
+    
+    if (window.AppInventor) {
+        window.AppInventor.setWebViewString(JSON.stringify(detected));
+    }
+}
+
   </script>
 </body>
 </html>
