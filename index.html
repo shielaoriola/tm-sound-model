@@ -49,37 +49,6 @@
       document.getElementById("status").innerText = "Model loaded. Click Start Listening.";
     }
 
-    async function init() {
-      if (!recognizer) await createModel();
-
-      document.getElementById("status").innerText = "Listening...";
-
-      recognizer.listen(result => {
-        const scores = result.scores;
-        const labelContainer = document.getElementById("label-container");
-
-        // Update all class probabilities
-        for (let i = 0; i < classLabels.length; i++) {
-          labelContainer.childNodes[i].innerHTML =
-            classLabels[i] + ": " + scores[i].toFixed(2);
-        }
-
-        // Send highest probability class to MIT App Inventor
-        const maxIndex = scores.indexOf(Math.max(...scores));
-        if (window.AppInventor) {
-          window.AppInventor.setWebViewString(JSON.stringify({
-            className: classLabels[maxIndex],
-            probability: scores[maxIndex]
-          }));
-        }
-      }, {
-        probabilityThreshold: 0.75,
-        includeSpectrogram: true,
-        overlapFactor: 0.5,
-        invokeCallbackOnNoiseAndUnknown: true
-      });
-    }
-
     async function startListening() {
     if (!recognizer) await createModel();
     document.getElementById("status").innerText = "Listening...";
