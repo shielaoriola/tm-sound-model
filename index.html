@@ -66,6 +66,34 @@
     margin-top: 15px;
     background-color: #cc0000;
   }
+
+  /* --- BUTTON ANIMATIONS --- */
+.animated-btn {
+    background: #ff5555;
+    color: white;
+    padding: 14px 22px;
+    border: none;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s ease, background-color 0.15s ease;
+    width: 100%;
+    max-width: 280px;
+}
+
+/* Hover effect (PC) */
+.animated-btn:hover {
+    transform: scale(0.97);
+    background: #e14b4b;
+}
+
+/* Mobile press effect */
+.animated-btn:active {
+    transform: scale(0.94);
+    background: #c94444;
+}
+
 </style>
 </head>
 <body>
@@ -78,8 +106,8 @@
 <div id="status">Idle</div>
 <div id="detected">Sound Detected: None</div>
 
-<button id="startBtn">Start Listening</button>
-<button id="stopBtn">Stop Listening</button>
+<button id="startBtn" class="animated-btn">Start Listening</button>
+<button id="stopBtn" class="animated-btn">Stop Listening</button>
 
 <!-- Emergency Call -->
 <button id="emergencyCall" onclick="fakeCall()">Emergency Contact</button>
