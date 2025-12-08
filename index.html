@@ -4,125 +4,103 @@
 <meta charset="UTF-8">
 <title>AlertSense - Emergency Sound Detector</title>
 <style>
-  /* Reset and basic styling */
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    text-align: center;
-    background-color: #ffffff;
-    transition: background-color 0.2s ease;
+    font-family: 'Segoe UI', sans-serif;
+    background-color: #fff;
     color: #333;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: center;
-    padding: 40px 20px;
+    text-align: center;
+    padding: 20px;
+    transition: background-color .2s ease;
+  }
+
+  /* BURGER MENU */
+  #menuBtn {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    font-size: 28px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    color: #ff6600;
   }
 
   h1 {
-    font-size: 36px;
-    margin-bottom: 20px;
-    color: #ff6600; /* Orange main color */
+    margin-top: 40px;
+    color: #ff6600;
+    font-size: 32px;
   }
 
   #status {
+    font-size: 24px;
     font-weight: bold;
-    font-size: 26px;
     margin: 15px 0;
     color: #ff6600;
   }
 
   #detected {
-    font-size: 20px;
-    margin-bottom: 30px;
-    color: #555;
-  }
-
-  a#howToLink {
-    display: inline-block;
-    margin-bottom: 40px;
-    font-size: 18px;
-    text-decoration: none;
-    color: #ffffff;
-    background-color: #ff6600;
-    padding: 10px 20px;
-    border-radius: 25px;
-    transition: background-color 0.2s ease;
-  }
-
-  a#howToLink:hover {
-    background-color: #e65c00;
+    font-size: 19px;
+    margin-bottom: 25px;
   }
 
   button {
-    padding: 15px 35px;
-    font-size: 18px;
-    margin: 10px;
+    padding: 14px 30px;
+    border-radius: 25px;
     border: none;
-    border-radius: 30px;
     background-color: #ff6600;
-    color: #fff;
+    color: white;
+    font-size: 17px;
+    margin: 8px;
     cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    transition: 0.2s;
   }
 
-  button:hover {
-    background-color: #e65c00;
-    transform: translateY(-2px);
-  }
+  button:hover { background-color: #e65c00; }
 
-  button:active {
-    transform: translateY(0px);
-  }
+  body.emergency { background-color: #ff3300 !important; color: white; }
 
-  /* Flashing emergency styling */
-  body.emergency {
-    background-color: #ff3300 !important;
-    color: #fff;
+  #emergencyCall {
+    margin-top: 15px;
+    background-color: #cc0000;
   }
-
-  /* Responsive */
-  @media (max-width: 480px) {
-    h1 { font-size: 28px; }
-    #status { font-size: 22px; }
-    #detected { font-size: 18px; }
-    button, a#howToLink { font-size: 16px; padding: 12px 25px; }
-  }
-
 </style>
 </head>
 <body>
 
+<!-- BURGER MENU BUTTON -->
+<button id="menuBtn" onclick="openSettings()">☰</button>
 
 <h1>AlertSense</h1>
 
 <div id="status">Idle</div>
 <div id="detected">Sound Detected: None</div>
 
-
 <button id="startBtn">Start Listening</button>
 <button id="stopBtn">Stop Listening</button>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<a href="how-to-use.html" id="howToLink">How to use AlertSense?</a>
 
-<!-- TensorFlow.js and Speech Commands -->
+<!-- Emergency Call -->
+<button id="emergencyCall" onclick="fakeCall()">Emergency Contact</button>
+
+<a href="how-to-use.html" style="margin-top:25px; display:block; color:#ff6600;">How to use AlertSense?</a>
+
+
+<!-- TensorFlow -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
 
 <script>
+/* ------------------------------- */
+/* TEMPORARY STORAGE (Resets On Refresh) */
+/* ------------------------------- */
+let contactNumber = "N/A";
+let historyLog = [];
+
+/* ------------------------------- */
+/* MODEL CONFIG */
+/* ------------------------------- */
 const checkpointURL = "https://shielaoriola.github.io/tm-sound-model/model/model.json";
 const metadataURL   = "https://shielaoriola.github.io/tm-sound-model/model/metadata.json";
 
@@ -132,51 +110,86 @@ let listening = false;
 let flashInterval;
 let consecutiveDetections = 0;
 
-// Load model
+let wakeLockObj = null;
+
+/* ------------------------------- */
+/* SETTINGS PAGE LINK */
+/* ------------------------------- */
+function openSettings() {
+    window.location.href = "settings.html";
+}
+
+/* ------------------------------- */
+/* CONFIRMATION TIMER */
+/* ------------------------------- */
+let confirmTimer = null;
+
+/* ------------------------------- */
+/* MODEL INIT */
+/* ------------------------------- */
 async function initModel() {
     recognizer = speechCommands.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
     await recognizer.ensureModelLoaded();
     classLabels = recognizer.wordLabels();
-    console.log("Model loaded:", classLabels);
 }
 
-// Handle TM results
-
+/* ------------------------------- */
+/* HANDLE RESULTS */
+/* ------------------------------- */
 function handleResult(result) {
     const scores = result.scores;
     const maxIndex = scores.indexOf(Math.max(...scores));
     const detected = classLabels[maxIndex];
     const probability = scores[maxIndex];
 
-    // Update detected sound label
     document.getElementById("detected").innerText = "Sound Detected: " + detected;
 
-    // Only consider emergency classes
-    const emergencyClasses = ["Whistle", "Siren", "Help", "Crying"];
+    const emergencyKeywords = ["Whistle", "Siren", "Help", "Crying"];
 
-    if (emergencyClasses.includes(detected) && probability > 0.85) {
+    if (emergencyKeywords.includes(detected) && probability > 0.85) {
         consecutiveDetections++;
-        // Trigger only after 2 consecutive detections
+
         if (consecutiveDetections >= 2) {
-            document.getElementById("status").innerText = "EMERGENCY SOUND DETECTED!";
-            startFlashing();
-            if (navigator.vibrate) navigator.vibrate([500, 500, 500]);
+
+            if (!confirmTimer) {
+                confirmTimer = setTimeout(() => {
+                    triggerEmergency(detected);
+                }, 3000); // 3 sec confirmation
+            }
         }
     } else {
         consecutiveDetections = 0;
-        // If listening but not emergency, show Listening
+        clearTimeout(confirmTimer);
+        confirmTimer = null;
         document.getElementById("status").innerText = listening ? "Listening..." : "Idle";
         stopFlashing();
     }
 }
 
+/* ------------------------------- */
+/* EMERGENCY TRIGGER */
+/* ------------------------------- */
+function triggerEmergency(type) {
+    document.getElementById("status").innerText = "EMERGENCY SOUND DETECTED!";
+    startFlashing();
 
-// Flash red background
+    historyLog.push("Detected: " + type + " at " + new Date().toLocaleTimeString());
+
+    if (navigator.vibrate) navigator.vibrate([500, 500, 500]);
+
+    if (contactNumber !== "N/A") {
+        window.location.href = "tel:" + contactNumber;
+    }
+}
+
+/* ------------------------------- */
+/* FLASHING RED SCREEN */
+/* ------------------------------- */
 function startFlashing() {
     if (!flashInterval) {
         flashInterval = setInterval(() => {
             document.body.classList.toggle("emergency");
-        }, 500);
+        }, 450);
     }
 }
 
@@ -186,37 +199,64 @@ function stopFlashing() {
     document.body.classList.remove("emergency");
 }
 
-// Start/Stop listening
+/* ------------------------------- */
+/* START / STOP LISTENING */
+/* ------------------------------- */
 async function startListening() {
+
     if (!recognizer) await initModel();
-    if (!listening) {
-        listening = true;
-        document.getElementById("status").innerText = "Listening...";
-        document.getElementById("detected").innerText = "Sound Detected: None";
-        recognizer.listen(handleResult, {
-            probabilityThreshold: 0.75,
-            includeSpectrogram: true,
-            overlapFactor: 0.5,
-            invokeCallbackOnNoiseAndUnknown: true
-        });
-    }
+
+    listening = true;
+    document.getElementById("status").innerText = "Listening...";
+    document.getElementById("detected").innerText = "Sound Detected: None";
+
+    enableWakeLock();
+
+    recognizer.listen(handleResult, {
+        probabilityThreshold: 0.75,
+        includeSpectrogram: true,
+        overlapFactor: 0.5,
+        invokeCallbackOnNoiseAndUnknown: true
+    });
 }
 
 function stopListening() {
-    if (recognizer && listening) {
-        recognizer.stopListening();
-        listening = false;
-        document.getElementById("status").innerText = "Idle";
-        document.getElementById("detected").innerText = "Sound Detected: None";
-        stopFlashing();
-        consecutiveDetections = 0;
+    listening = false;
+
+    if (recognizer) recognizer.stopListening();
+
+    document.getElementById("status").innerText = "Idle";
+    stopFlashing();
+    disableWakeLock();
+}
+
+/* ------------------------------- */
+/* EMERGENCY CONTACT BUTTON */
+/* ------------------------------- */
+function fakeCall() {
+    if (contactNumber === "N/A") {
+        alert("No emergency contact set.");
+        return;
+    }
+    window.location.href = "tel:" + contactNumber;
+}
+
+/* ------------------------------- */
+/* WAKE LOCK */
+/* ------------------------------- */
+async function enableWakeLock() {
+    try {
+        wakeLockObj = await navigator.wakeLock.request("screen");
+    } catch (err) {
+        console.log("Wake Lock not supported");
     }
 }
 
-// Buttons
-document.getElementById("startBtn").addEventListener("click", startListening);
-document.getElementById("stopBtn").addEventListener("click", stopListening);
-
+function disableWakeLock() {
+    try {
+        if (wakeLockObj) wakeLockObj.release();
+    } catch {}
+}
 </script>
 </body>
 </html>
