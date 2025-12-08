@@ -2,288 +2,599 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AlertSense - Emergency Sound Detector</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    font-family: 'Segoe UI', sans-serif;
-    background-color: #fff;
-    color: #333;
-    text-align: center;
-    padding: 20px;
-    transition: background-color .2s ease;
+  * { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
   }
 
-  /* BURGER MENU */
-  #menuBtn {
-    position: absolute;
-    top: 15px;
-    left: 15px;
-    font-size: 28px;
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #fff5f0 0%, #ffffff 100%);
+    color: #333;
+    min-height: 100vh;
+    transition: background 0.3s ease;
+  }
+
+  body.emergency { 
+    background: #ff3300 !important;
+    animation: pulse 0.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.85; }
+  }
+
+  /* Top Navigation Bar */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #ff6600 0%, #ff8533 100%);
+    color: white;
+    box-shadow: 0 2px 10px rgba(255, 102, 0, 0.3);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .burger {
+    width: 28px;
+    height: 22px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
     cursor: pointer;
-    background: none;
-    border: none;
-    color: #ff6600;
+    transition: transform 0.3s ease;
+  }
+
+  .burger:active {
+    transform: scale(0.9);
+  }
+
+  .burger div {
+    height: 3px;
+    background: white;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+  }
+
+  .burger.active div:nth-child(1) {
+    transform: rotate(45deg) translate(6px, 6px);
+  }
+  .burger.active div:nth-child(2) {
+    opacity: 0;
+  }
+  .burger.active div:nth-child(3) {
+    transform: rotate(-45deg) translate(6px, -6px);
   }
 
   h1 {
-    margin-top: 40px;
-    color: #ff6600;
-    font-size: 32px;
-  }
-
-  #status {
     font-size: 24px;
-    font-weight: bold;
-    margin: 15px 0;
-    color: #ff6600;
+    font-weight: 700;
+    letter-spacing: -0.5px;
   }
 
-  #detected {
-    font-size: 19px;
-    margin-bottom: 25px;
+  /* Main Container */
+  .container {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 24px 20px;
   }
 
-  button {
-    padding: 14px 30px;
-    border-radius: 25px;
-    border: none;
-    background-color: #ff6600;
-    color: white;
-    font-size: 17px;
-    margin: 8px;
-    cursor: pointer;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-    transition: 0.2s;
+  /* Status Card */
+  .status-card {
+    background: white;
+    border-radius: 20px;
+    padding: 32px 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    margin-bottom: 24px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
 
-  button:hover { background-color: #e65c00; }
-
-  body.emergency { background-color: #ff3300 !important; color: white; }
-
-  #emergencyCall {
-    margin-top: 15px;
-    background-color: #cc0000;
+  .status-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.12);
   }
 
-  /* --- BUTTON ANIMATIONS --- */
-.animated-btn {
-    background: #ff5555;
-    color: white;
-    padding: 14px 22px;
-    border: none;
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ccc;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .status-dot.listening {
+    background: #4CAF50;
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+    animation: pulse-dot 2s infinite;
+  }
+
+  .status-dot.emergency {
+    background: #ff3300;
+    animation: pulse-dot 0.5s infinite;
+  }
+
+  @keyframes pulse-dot {
+    0% {
+      box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+    }
+    70% {
+      box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+    }
+  }
+
+  .status-text {
+    font-size: 20px;
+    font-weight: 600;
+    color: #333;
+  }
+
+  .status-text.listening {
+    color: #4CAF50;
+  }
+
+  .status-text.emergency {
+    color: #ff3300;
+  }
+
+  .detected-sound {
+    text-align: center;
+    padding: 16px;
+    background: #f8f9fa;
     border-radius: 12px;
-    font-size: 18px;
+    font-size: 16px;
+    color: #666;
+    margin-top: 16px;
+  }
+
+  .detected-sound strong {
+    color: #ff6600;
+    font-weight: 600;
+  }
+
+  /* Control Buttons */
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .btn {
+    padding: 16px 24px;
+    border-radius: 14px;
+    border: none;
+    font-size: 17px;
     font-weight: 600;
     cursor: pointer;
-    transition: transform 0.15s ease, background-color 0.15s ease;
-    width: 100%;
-    max-width: 280px;
-}
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+  }
 
-/* Hover effect (PC) */
-.animated-btn:hover {
+  .btn:active {
     transform: scale(0.97);
-    background: #e14b4b;
-}
+  }
 
-/* Mobile press effect */
-.animated-btn:active {
-    transform: scale(0.94);
-    background: #c94444;
-}
+  .btn-primary {
+    background: linear-gradient(135deg, #ff6600 0%, #ff8533 100%);
+    color: white;
+  }
 
+  .btn-primary:hover {
+    box-shadow: 0 6px 16px rgba(255, 102, 0, 0.3);
+    transform: translateY(-2px);
+  }
+
+  .btn-secondary {
+    background: white;
+    color: #ff6600;
+    border: 2px solid #ff6600;
+  }
+
+  .btn-secondary:hover {
+    background: #fff5f0;
+    transform: translateY(-2px);
+  }
+
+  .btn-emergency {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+    margin-top: 8px;
+  }
+
+  .btn-emergency:hover {
+    box-shadow: 0 6px 16px rgba(220, 53, 69, 0.3);
+    transform: translateY(-2px);
+  }
+
+  /* Help Link */
+  .help-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 24px;
+    color: #ff6600;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    padding: 12px;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+  }
+
+  .help-link:hover {
+    background: #fff5f0;
+  }
+
+  /* Modal */
+  .modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .modal-content {
+    background: white;
+    padding: 28px;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 320px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    animation: slideUp 0.3s ease;
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .modal-content h2 {
+    font-size: 20px;
+    margin-bottom: 20px;
+    color: #333;
+    text-align: center;
+  }
+
+  .modal-btn {
+    width: 100%;
+    padding: 14px;
+    margin: 8px 0;
+    font-size: 16px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #ff6600 0%, #ff8533 100%);
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .modal-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 102, 0, 0.3);
+  }
+
+  .modal-btn:active {
+    transform: scale(0.97);
+  }
+
+  .modal-btn.secondary {
+    background: #f8f9fa;
+    color: #666;
+  }
+
+  .modal-btn.secondary:hover {
+    background: #e9ecef;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 480px) {
+    .container {
+      padding: 16px;
+    }
+
+    h1 {
+      font-size: 20px;
+    }
+
+    .status-card {
+      padding: 24px 20px;
+    }
+
+    .status-text {
+      font-size: 18px;
+    }
+
+    .btn {
+      padding: 14px 20px;
+      font-size: 16px;
+    }
+  }
+
+  /* Icon styles */
+  .icon {
+    font-size: 20px;
+  }
 </style>
 </head>
 <body>
 
-<!-- BURGER MENU BUTTON -->
-<button id="menuBtn" onclick="openSettings()">☰</button>
+<!-- Top Navigation Bar -->
+<div class="top-bar">
+  <div class="logo-section">
+    <div id="burger" class="burger" onclick="toggleMenu()">
+      <div></div>
+      <div></div>
+      <div></div>
+    </div>
+    <h1>AlertSense</h1>
+  </div>
+</div>
 
-<h1>AlertSense</h1>
+<!-- Main Container -->
+<div class="container">
+  <!-- Status Card -->
+  <div class="status-card">
+    <div class="status-indicator">
+      <div class="status-dot" id="statusDot"></div>
+      <div class="status-text" id="status">Idle</div>
+    </div>
+    <div class="detected-sound" id="detected">
+      <strong>Sound Detected:</strong> None
+    </div>
+  </div>
 
-<div id="status">Idle</div>
-<div id="detected">Sound Detected: None</div>
+  <!-- Control Buttons -->
+  <div class="controls">
+    <button id="startBtn" class="btn btn-primary" onclick="startListening()">
+      ▶ Start Listening
+    </button>
+    <button id="stopBtn" class="btn btn-secondary" onclick="stopListening()">
+      ⏸ Stop Listening
+    </button>
+    <button id="emergencyCall" class="btn btn-emergency" onclick="fakeCall()">
+      📞 Emergency Contact
+    </button>
+  </div>
 
-<button id="startBtn" class="animated-btn">Start Listening</button>
-<button id="stopBtn" class="animated-btn">Stop Listening</button>
+  <!-- Help Link -->
+  <a href="how-to-use.html" class="help-link">
+    <span class="icon">❓</span>
+    <span>How to use AlertSense</span>
+  </a>
+</div>
 
-<!-- Emergency Call -->
-<button id="emergencyCall" onclick="fakeCall()">Emergency Contact</button>
-
-<a href="how-to-use.html" style="margin-top:25px; display:block; color:#ff6600;">How to use AlertSense?</a>
-
+<!-- Popup Modal -->
+<div id="menuPopup" class="modal" onclick="closeModalOnOutsideClick(event)">
+  <div class="modal-content">
+    <h2>Menu</h2>
+    <button class="modal-btn" onclick="goSettings()">⚙️ Settings</button>
+    <button class="modal-btn secondary" onclick="toggleMenu()">✕ Close</button>
+  </div>
+</div>
 
 <!-- TensorFlow -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
 
 <script>
-/* ------------------------------- */
-/* TEMPORARY STORAGE (Resets On Refresh) */
-/* ------------------------------- */
+/* Storage */
 let contactNumber = "N/A";
 let historyLog = [];
 
-/* ------------------------------- */
-/* MODEL CONFIG */
-/* ------------------------------- */
+/* Model Config */
 const checkpointURL = "https://shielaoriola.github.io/tm-sound-model/model/model.json";
-const metadataURL   = "https://shielaoriola.github.io/tm-sound-model/model/metadata.json";
+const metadataURL = "https://shielaoriola.github.io/tm-sound-model/model/metadata.json";
 
 let recognizer;
 let classLabels;
 let listening = false;
 let flashInterval;
 let consecutiveDetections = 0;
-
 let wakeLockObj = null;
-
-/* ------------------------------- */
-/* SETTINGS PAGE LINK */
-/* ------------------------------- */
-function openSettings() {
-    window.location.href = "settings.html";
-}
-
-/* ------------------------------- */
-/* CONFIRMATION TIMER */
-/* ------------------------------- */
 let confirmTimer = null;
 
-/* ------------------------------- */
-/* MODEL INIT */
-/* ------------------------------- */
+/* Model Init */
 async function initModel() {
-    recognizer = speechCommands.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
-    await recognizer.ensureModelLoaded();
-    classLabels = recognizer.wordLabels();
+  recognizer = speechCommands.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
+  await recognizer.ensureModelLoaded();
+  classLabels = recognizer.wordLabels();
 }
 
-/* ------------------------------- */
-/* HANDLE RESULTS */
-/* ------------------------------- */
+/* Handle Results */
 function handleResult(result) {
-    const scores = result.scores;
-    const maxIndex = scores.indexOf(Math.max(...scores));
-    const detected = classLabels[maxIndex];
-    const probability = scores[maxIndex];
+  const scores = result.scores;
+  const maxIndex = scores.indexOf(Math.max(...scores));
+  const detected = classLabels[maxIndex];
+  const probability = scores[maxIndex];
 
-    document.getElementById("detected").innerText = "Sound Detected: " + detected;
+  document.getElementById("detected").innerHTML = `<strong>Sound Detected:</strong> ${detected}`;
 
-    const emergencyKeywords = ["Whistle", "Siren", "Help", "Crying"];
+  const emergencyKeywords = ["Whistle", "Siren", "Help", "Crying"];
 
-    if (emergencyKeywords.includes(detected) && probability > 0.85) {
-        consecutiveDetections++;
+  if (emergencyKeywords.includes(detected) && probability > 0.85) {
+    consecutiveDetections++;
 
-        if (consecutiveDetections >= 2) {
-
-            if (!confirmTimer) {
-                confirmTimer = setTimeout(() => {
-                    triggerEmergency(detected);
-                }, 3000); // 3 sec confirmation
-            }
-        }
-    } else {
-        consecutiveDetections = 0;
-        clearTimeout(confirmTimer);
-        confirmTimer = null;
-        document.getElementById("status").innerText = listening ? "Listening..." : "Idle";
-        stopFlashing();
+    if (consecutiveDetections >= 2 && !confirmTimer) {
+      confirmTimer = setTimeout(() => {
+        triggerEmergency(detected);
+      }, 3000);
     }
+  } else {
+    consecutiveDetections = 0;
+    clearTimeout(confirmTimer);
+    confirmTimer = null;
+    updateStatus('listening');
+    stopFlashing();
+  }
 }
 
-/* ------------------------------- */
-/* EMERGENCY TRIGGER */
-/* ------------------------------- */
+/* Emergency Trigger */
 function triggerEmergency(type) {
-    document.getElementById("status").innerText = "EMERGENCY SOUND DETECTED!";
-    startFlashing();
+  updateStatus('emergency');
+  startFlashing();
 
-    historyLog.push("Detected: " + type + " at " + new Date().toLocaleTimeString());
+  historyLog.push("Detected: " + type + " at " + new Date().toLocaleTimeString());
 
-    if (navigator.vibrate) navigator.vibrate([500, 500, 500]);
+  if (navigator.vibrate) navigator.vibrate([500, 500, 500]);
 
-    if (contactNumber !== "N/A") {
-        window.location.href = "tel:" + contactNumber;
-    }
+  if (contactNumber !== "N/A") {
+    window.location.href = "tel:" + contactNumber;
+  }
 }
 
-/* ------------------------------- */
-/* FLASHING RED SCREEN */
-/* ------------------------------- */
+/* Update Status Display */
+function updateStatus(state) {
+  const statusText = document.getElementById("status");
+  const statusDot = document.getElementById("statusDot");
+  
+  statusDot.className = "status-dot";
+  statusText.className = "status-text";
+  
+  if (state === 'listening') {
+    statusText.innerText = "Listening...";
+    statusDot.classList.add('listening');
+    statusText.classList.add('listening');
+  } else if (state === 'emergency') {
+    statusText.innerText = "EMERGENCY DETECTED!";
+    statusDot.classList.add('emergency');
+    statusText.classList.add('emergency');
+  } else {
+    statusText.innerText = "Idle";
+  }
+}
+
+/* Flashing Screen */
 function startFlashing() {
-    if (!flashInterval) {
-        flashInterval = setInterval(() => {
-            document.body.classList.toggle("emergency");
-        }, 450);
-    }
+  if (!flashInterval) {
+    flashInterval = setInterval(() => {
+      document.body.classList.toggle("emergency");
+    }, 450);
+  }
 }
 
 function stopFlashing() {
-    clearInterval(flashInterval);
-    flashInterval = null;
-    document.body.classList.remove("emergency");
+  clearInterval(flashInterval);
+  flashInterval = null;
+  document.body.classList.remove("emergency");
 }
 
-/* ------------------------------- */
-/* START / STOP LISTENING */
-/* ------------------------------- */
+/* Start/Stop Listening */
 async function startListening() {
+  if (!recognizer) await initModel();
 
-    if (!recognizer) await initModel();
+  listening = true;
+  updateStatus('listening');
+  document.getElementById("detected").innerHTML = "<strong>Sound Detected:</strong> None";
 
-    listening = true;
-    document.getElementById("status").innerText = "Listening...";
-    document.getElementById("detected").innerText = "Sound Detected: None";
+  enableWakeLock();
 
-    enableWakeLock();
-
-    recognizer.listen(handleResult, {
-        probabilityThreshold: 0.75,
-        includeSpectrogram: true,
-        overlapFactor: 0.5,
-        invokeCallbackOnNoiseAndUnknown: true
-    });
+  recognizer.listen(handleResult, {
+    probabilityThreshold: 0.75,
+    includeSpectrogram: true,
+    overlapFactor: 0.5,
+    invokeCallbackOnNoiseAndUnknown: true
+  });
 }
 
 function stopListening() {
-    listening = false;
+  listening = false;
 
-    if (recognizer) recognizer.stopListening();
+  if (recognizer) recognizer.stopListening();
 
-    document.getElementById("status").innerText = "Idle";
-    stopFlashing();
-    disableWakeLock();
+  updateStatus('idle');
+  stopFlashing();
+  disableWakeLock();
 }
 
-/* ------------------------------- */
-/* EMERGENCY CONTACT BUTTON */
-/* ------------------------------- */
+/* Emergency Contact */
 function fakeCall() {
-    if (contactNumber === "N/A") {
-        alert("No emergency contact set.");
-        return;
-    }
-    window.location.href = "tel:" + contactNumber;
+  if (contactNumber === "N/A") {
+    alert("No emergency contact set. Please add one in Settings.");
+    return;
+  }
+  window.location.href = "tel:" + contactNumber;
 }
 
-/* ------------------------------- */
-/* WAKE LOCK */
-/* ------------------------------- */
+/* Wake Lock */
 async function enableWakeLock() {
-    try {
-        wakeLockObj = await navigator.wakeLock.request("screen");
-    } catch (err) {
-        console.log("Wake Lock not supported");
-    }
+  try {
+    wakeLockObj = await navigator.wakeLock.request("screen");
+  } catch (err) {
+    console.log("Wake Lock not supported");
+  }
 }
 
 function disableWakeLock() {
-    try {
-        if (wakeLockObj) wakeLockObj.release();
-    } catch {}
+  try {
+    if (wakeLockObj) wakeLockObj.release();
+  } catch {}
+}
+
+/* Menu Toggle */
+const burger = document.getElementById('burger');
+const popup = document.getElementById('menuPopup');
+
+function toggleMenu() {
+  burger.classList.toggle('active');
+  popup.style.display = burger.classList.contains('active') ? 'flex' : 'none';
+}
+
+function closeModalOnOutsideClick(event) {
+  if (event.target === popup) {
+    toggleMenu();
+  }
+}
+
+function goSettings() {
+  window.location.href = 'settings.html';
 }
 </script>
 </body>
