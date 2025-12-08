@@ -374,7 +374,7 @@
       <div></div>
       <div></div>
     </div>
-    <h1>AlertSense</h1>
+    <h1>🔔 AlertSense</h1>
   </div>
 </div>
 
@@ -425,13 +425,18 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
 
 <script>
-/* Storage */
-let contactNumber = "N/A";
-let historyLog = [];
+/* ------------------------------- */
+/* STORAGE - Load from localStorage */
+/* ------------------------------- */
+let contactNumber = localStorage.getItem('emergencyContact') || "N/A";
+let historyLog = JSON.parse(localStorage.getItem('historyLog') || '[]');
 
-/* Model Config */
-const checkpointURL = "https://shielaoriola.github.io/tm-sound-model/model/model.json";
-const metadataURL = "https://shielaoriola.github.io/tm-sound-model/model/metadata.json";
+/* ------------------------------- */
+/* MODEL CONFIG - Update paths to your local model */
+/* ------------------------------- */
+// Use relative paths to your local model folder
+const checkpointURL = "./model/model.json";
+const metadataURL = "./model/metadata.json";
 
 let recognizer;
 let classLabels;
@@ -441,56 +446,92 @@ let consecutiveDetections = 0;
 let wakeLockObj = null;
 let confirmTimer = null;
 
-/* Model Init */
+// Get confirmation timer from settings (default 3 seconds)
+let confirmationDelay = parseInt(localStorage.getItem('confirmTimer') || '3') * 1000;
+
+/* ------------------------------- */
+/* MODEL INIT */
+/* ------------------------------- */
 async function initModel() {
-  recognizer = speechCommands.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
-  await recognizer.ensureModelLoaded();
-  classLabels = recognizer.wordLabels();
+  try {
+    recognizer = speechCommands.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
+    await recognizer.ensureModelLoaded();
+    classLabels = recognizer.wordLabels();
+    console.log("Model loaded successfully. Classes:", classLabels);
+  } catch (error) {
+    console.error("Error loading model:", error);
+    alert("Failed to load the sound detection model. Please check the model files.");
+  }
 }
 
-/* Handle Results */
+/* ------------------------------- */
+/* HANDLE RESULTS */
+/* ------------------------------- */
 function handleResult(result) {
   const scores = result.scores;
   const maxIndex = scores.indexOf(Math.max(...scores));
   const detected = classLabels[maxIndex];
   const probability = scores[maxIndex];
 
-  document.getElementById("detected").innerHTML = `<strong>Sound Detected:</strong> ${detected}`;
+  // Update the detected sound display
+  document.getElementById("detected").innerHTML = `<strong>Sound Detected:</strong> ${detected} (${(probability * 100).toFixed(1)}%)`;
 
-  const emergencyKeywords = ["Whistle", "Siren", "Help", "Crying"];
+  // Define emergency keywords - adjust these based on your Teachable Machine model labels
+  const emergencyKeywords = ["Whistle", "Siren", "Help", "Crying", "Shouting"];
 
+  // Check if detected sound is an emergency and has high confidence
   if (emergencyKeywords.includes(detected) && probability > 0.85) {
     consecutiveDetections++;
 
+    // Require 2 consecutive detections to reduce false positives
     if (consecutiveDetections >= 2 && !confirmTimer) {
+      // Start confirmation timer (customizable in settings)
       confirmTimer = setTimeout(() => {
         triggerEmergency(detected);
-      }, 3000);
+      }, confirmationDelay);
     }
   } else {
+    // Reset if non-emergency sound detected
     consecutiveDetections = 0;
-    clearTimeout(confirmTimer);
-    confirmTimer = null;
+    if (confirmTimer) {
+      clearTimeout(confirmTimer);
+      confirmTimer = null;
+    }
     updateStatus('listening');
     stopFlashing();
   }
 }
 
-/* Emergency Trigger */
+/* ------------------------------- */
+/* EMERGENCY TRIGGER */
+/* ------------------------------- */
 function triggerEmergency(type) {
   updateStatus('emergency');
   startFlashing();
 
-  historyLog.push("Detected: " + type + " at " + new Date().toLocaleTimeString());
+  // Add to history log
+  const timestamp = new Date().toLocaleString();
+  const logEntry = `Detected: ${type} at ${timestamp}`;
+  historyLog.push(logEntry);
+  localStorage.setItem('historyLog', JSON.stringify(historyLog));
 
-  if (navigator.vibrate) navigator.vibrate([500, 500, 500]);
+  // Vibrate if supported
+  if (navigator.vibrate) {
+    navigator.vibrate([500, 200, 500, 200, 500]);
+  }
 
+  // Auto-call emergency contact if set
   if (contactNumber !== "N/A") {
-    window.location.href = "tel:" + contactNumber;
+    // Optional: Add a small delay so user can see the alert
+    setTimeout(() => {
+      window.location.href = "tel:" + contactNumber;
+    }, 1000);
   }
 }
 
-/* Update Status Display */
+/* ------------------------------- */
+/* UPDATE STATUS DISPLAY */
+/* ------------------------------- */
 function updateStatus(state) {
   const statusText = document.getElementById("status");
   const statusDot = document.getElementById("statusDot");
@@ -511,7 +552,9 @@ function updateStatus(state) {
   }
 }
 
-/* Flashing Screen */
+/* ------------------------------- */
+/* FLASHING RED SCREEN */
+/* ------------------------------- */
 function startFlashing() {
   if (!flashInterval) {
     flashInterval = setInterval(() => {
@@ -521,21 +564,37 @@ function startFlashing() {
 }
 
 function stopFlashing() {
-  clearInterval(flashInterval);
-  flashInterval = null;
+  if (flashInterval) {
+    clearInterval(flashInterval);
+    flashInterval = null;
+  }
   document.body.classList.remove("emergency");
 }
 
-/* Start/Stop Listening */
+/* ------------------------------- */
+/* START / STOP LISTENING */
+/* ------------------------------- */
 async function startListening() {
-  if (!recognizer) await initModel();
+  // Initialize model if not already loaded
+  if (!recognizer) {
+    await initModel();
+  }
+
+  // Reload settings from localStorage
+  contactNumber = localStorage.getItem('emergencyContact') || "N/A";
+  confirmationDelay = parseInt(localStorage.getItem('confirmTimer') || '3') * 1000;
 
   listening = true;
   updateStatus('listening');
   document.getElementById("detected").innerHTML = "<strong>Sound Detected:</strong> None";
 
-  enableWakeLock();
+  // Enable wake lock if setting is enabled
+  const wakeLockEnabled = localStorage.getItem('wakeLockEnabled');
+  if (wakeLockEnabled === null || wakeLockEnabled === 'true') {
+    enableWakeLock();
+  }
 
+  // Start listening with the recognizer
   recognizer.listen(handleResult, {
     probabilityThreshold: 0.75,
     includeSpectrogram: true,
@@ -547,15 +606,29 @@ async function startListening() {
 function stopListening() {
   listening = false;
 
-  if (recognizer) recognizer.stopListening();
+  if (recognizer) {
+    recognizer.stopListening();
+  }
 
+  // Clear any pending emergency timer
+  if (confirmTimer) {
+    clearTimeout(confirmTimer);
+    confirmTimer = null;
+  }
+
+  consecutiveDetections = 0;
   updateStatus('idle');
   stopFlashing();
   disableWakeLock();
 }
 
-/* Emergency Contact */
+/* ------------------------------- */
+/* EMERGENCY CONTACT BUTTON */
+/* ------------------------------- */
 function fakeCall() {
+  // Reload contact from localStorage
+  contactNumber = localStorage.getItem('emergencyContact') || "N/A";
+  
   if (contactNumber === "N/A") {
     alert("No emergency contact set. Please add one in Settings.");
     return;
@@ -563,22 +636,35 @@ function fakeCall() {
   window.location.href = "tel:" + contactNumber;
 }
 
-/* Wake Lock */
+/* ------------------------------- */
+/* WAKE LOCK */
+/* ------------------------------- */
 async function enableWakeLock() {
   try {
-    wakeLockObj = await navigator.wakeLock.request("screen");
+    if ('wakeLock' in navigator) {
+      wakeLockObj = await navigator.wakeLock.request("screen");
+      console.log("Wake Lock enabled");
+    }
   } catch (err) {
-    console.log("Wake Lock not supported");
+    console.log("Wake Lock not supported or failed:", err);
   }
 }
 
 function disableWakeLock() {
   try {
-    if (wakeLockObj) wakeLockObj.release();
-  } catch {}
+    if (wakeLockObj) {
+      wakeLockObj.release();
+      wakeLockObj = null;
+      console.log("Wake Lock released");
+    }
+  } catch (err) {
+    console.log("Error releasing Wake Lock:", err);
+  }
 }
 
-/* Menu Toggle */
+/* ------------------------------- */
+/* MENU TOGGLE */
+/* ------------------------------- */
 const burger = document.getElementById('burger');
 const popup = document.getElementById('menuPopup');
 
@@ -596,6 +682,15 @@ function closeModalOnOutsideClick(event) {
 function goSettings() {
   window.location.href = 'settings.html';
 }
+
+/* ------------------------------- */
+/* PAGE LOAD */
+/* ------------------------------- */
+window.addEventListener('DOMContentLoaded', () => {
+  console.log("AlertSense initialized");
+  // Preload the model for faster first use
+  initModel();
+});
 </script>
 </body>
 </html>
