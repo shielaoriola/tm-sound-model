@@ -374,7 +374,7 @@
       <div></div>
       <div></div>
     </div>
-    <h1>🔔 AlertSense</h1>
+    <h1>AlertSense</h1>
   </div>
 </div>
 
@@ -443,64 +443,62 @@ let classLabels;
 let listening = false;
 let flashInterval;
 let consecutiveDetections = 0;
-let wakeLockObj = null;
 let confirmTimer = null;
+let wakeLockObj = null;
 
-// Get confirmation timer from settings (default 3 seconds)
-let confirmationDelay = parseInt(localStorage.getItem('confirmTimer') || '3') * 1000;
+// Default detected sound
+document.getElementById("detected").innerHTML = "<strong>Sound Detected:</strong> Background";
 
-/* ------------------------------- */
-/* MODEL INIT */
-/* ------------------------------- */
+// Load model
 async function initModel() {
-  try {
-    recognizer = speechCommands.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
-    await recognizer.ensureModelLoaded();
-    classLabels = recognizer.wordLabels();
-    console.log("Model loaded successfully. Classes:", classLabels);
-  } catch (error) {
-    console.error("Error loading model:", error);
-    alert("Failed to load the sound detection model. Please check the model files.");
-  }
+    if (!recognizer || !classLabels) {
+        try {
+            recognizer = speechCommands.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
+            await recognizer.ensureModelLoaded();
+            classLabels = recognizer.wordLabels();
+            console.log("Model loaded successfully. Classes:", classLabels);
+        } catch (err) {
+            console.error("Error loading model:", err);
+            alert("Failed to load the sound detection model.");
+        }
+    }
 }
 
-/* ------------------------------- */
-/* HANDLE RESULTS */
-/* ------------------------------- */
+// Handle results from TM
 function handleResult(result) {
-  const scores = result.scores;
-  const maxIndex = scores.indexOf(Math.max(...scores));
-  const detected = classLabels[maxIndex];
-  const probability = scores[maxIndex];
+    if (!classLabels) return;
 
-  // Update the detected sound display
-  document.getElementById("detected").innerHTML = `<strong>Sound Detected:</strong> ${detected} (${(probability * 100).toFixed(1)}%)`;
+    const scores = result.scores;
+    const maxIndex = scores.indexOf(Math.max(...scores));
+    const detected = classLabels[maxIndex];
+    const probability = scores[maxIndex];
 
-  // Define emergency keywords - adjust these based on your Teachable Machine model labels
-  const emergencyKeywords = ["Whistle", "Siren", "Help", "Crying", "Shouting"];
+    // Show detected sound
+    document.getElementById("detected").innerHTML = `<strong>Sound Detected:</strong> ${detected}`;
 
-  // Check if detected sound is an emergency and has high confidence
-  if (emergencyKeywords.includes(detected) && probability > 0.85) {
-    consecutiveDetections++;
+    // Emergency classes
+    const emergencyKeywords = ["Whistle", "Siren", "Help", "Crying", "Shouting"];
 
-    // Require 2 consecutive detections to reduce false positives
-    if (consecutiveDetections >= 2 && !confirmTimer) {
-      // Start confirmation timer (customizable in settings)
-      confirmTimer = setTimeout(() => {
-        triggerEmergency(detected);
-      }, confirmationDelay);
+    if (emergencyKeywords.includes(detected) && probability > 0.85) {
+        consecutiveDetections++;
+
+        // Trigger after 2 consecutive detections
+        if (consecutiveDetections >= 2 && !confirmTimer) {
+            confirmTimer = setTimeout(() => {
+                triggerEmergency(detected);
+            }, confirmationDelay); // confirmationDelay in ms from settings
+        }
+    } else {
+        // Non-emergency or background
+        consecutiveDetections = 0;
+        if (confirmTimer) {
+            clearTimeout(confirmTimer);
+            confirmTimer = null;
+        }
+        updateStatus(listening ? 'listening' : 'idle');
+        stopFlashing();
     }
-  } else {
-    // Reset if non-emergency sound detected
-    consecutiveDetections = 0;
-    if (confirmTimer) {
-      clearTimeout(confirmTimer);
-      confirmTimer = null;
-    }
-    updateStatus('listening');
-    stopFlashing();
   }
-}
 
 /* ------------------------------- */
 /* EMERGENCY TRIGGER */
@@ -574,52 +572,43 @@ function stopFlashing() {
 /* ------------------------------- */
 /* START / STOP LISTENING */
 /* ------------------------------- */
+// Start listening
 async function startListening() {
-  // Initialize model if not already loaded
-  if (!recognizer) {
-    await initModel();
-  }
+    if (!recognizer || !classLabels) await initModel();
 
-  // Reload settings from localStorage
-  contactNumber = localStorage.getItem('emergencyContact') || "N/A";
-  confirmationDelay = parseInt(localStorage.getItem('confirmTimer') || '3') * 1000;
+    if (!listening) {
+        listening = true;
+        updateStatus('listening');
+        document.getElementById("detected").innerHTML = "<strong>Sound Detected:</strong> Background";
 
-  listening = true;
-  updateStatus('listening');
-  document.getElementById("detected").innerHTML = "<strong>Sound Detected:</strong> None";
+        // Wake lock
+        const wakeLockEnabled = localStorage.getItem('wakeLockEnabled');
+        if (wakeLockEnabled === null || wakeLockEnabled === 'true') enableWakeLock();
 
-  // Enable wake lock if setting is enabled
-  const wakeLockEnabled = localStorage.getItem('wakeLockEnabled');
-  if (wakeLockEnabled === null || wakeLockEnabled === 'true') {
-    enableWakeLock();
-  }
-
-  // Start listening with the recognizer
-  recognizer.listen(handleResult, {
-    probabilityThreshold: 0.75,
-    includeSpectrogram: true,
-    overlapFactor: 0.5,
-    invokeCallbackOnNoiseAndUnknown: true
-  });
+        recognizer.listen(handleResult, {
+            probabilityThreshold: 0.75,
+            includeSpectrogram: true,
+            overlapFactor: 0.5,
+            invokeCallbackOnNoiseAndUnknown: true
+        });
+    }
 }
 
+// Stop listening
 function stopListening() {
-  listening = false;
+    listening = false;
+    if (recognizer) recognizer.stopListening();
 
-  if (recognizer) {
-    recognizer.stopListening();
-  }
+    if (confirmTimer) {
+        clearTimeout(confirmTimer);
+        confirmTimer = null;
+    }
 
-  // Clear any pending emergency timer
-  if (confirmTimer) {
-    clearTimeout(confirmTimer);
-    confirmTimer = null;
-  }
-
-  consecutiveDetections = 0;
-  updateStatus('idle');
-  stopFlashing();
-  disableWakeLock();
+    consecutiveDetections = 0;
+    updateStatus('idle');
+    document.getElementById("detected").innerHTML = "<strong>Sound Detected:</strong> Background";
+    stopFlashing();
+    disableWakeLock();
 }
 
 /* ------------------------------- */
